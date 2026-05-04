@@ -1,0 +1,90 @@
+name: Kittygram CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.9
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install ruff
+
+      - name: Run backend lint with ruff
+        run: ruff check backend/
+
+      - name: Run backend tests
+        run: pytest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Run frontend tests
+        env:
+          CI: true
+        run: npm run test --prefix frontend -- --watchAll=false --passWithNoTests
+
+  build_and_push_to_docker_hub:
+    needs: tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - image_name: kittygram_backend
+            context: ./backend
+          - image_name: kittygram_frontend
+            context: ./frontend
+          - image_name: kittygram_gateway
+            context: ./nginx
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/${{ matrix.image_name }}:latest
+
+  notify:
+    needs: build_and_push_to_docker_hub
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Telegram
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_TO }}
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          message: |
+            Kittygram CI/CD finished successfully.
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}

@@ -18,7 +18,7 @@ services:
 
   backend:
     container_name: backend
-    build: ./backend/
+    image: ${DOCKER_USERNAME}/kittygram_backend:latest
     env_file: .env
     depends_on:
       db:
@@ -33,14 +33,14 @@ services:
 
   frontend:
     container_name: frontend
-    build: ./frontend/
+    image: ${DOCKER_USERNAME}/kittygram_frontend:latest
     command: cp -r /app/build/. /static/
     volumes:
       - static:/static
 
   gateway:
     container_name: gateway
-    build: ./nginx/
+    image: ${DOCKER_USERNAME}/kittygram_gateway:latest
     depends_on:
       backend:
         condition: service_started
