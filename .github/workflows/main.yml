@@ -26,8 +26,9 @@ jobs:
       - name: Run backend lint with ruff
         run: ruff check backend/
 
-      - name: Run backend tests
-        run: pytest
+      # Полный pytest (включая tests.yml / Docker Hub / домены) — локально перед сдачей: pytest
+      - name: Run backend tests (repository layout)
+        run: pytest tests/test_files.py
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
